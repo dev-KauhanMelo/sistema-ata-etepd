@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-base text-ink antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@layer components {
+  /* Glassmorphism — as três propriedades são obrigatórias juntas (design-sistema.md §3.1) */
+  .glass {
+    background-color: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .tile {
+    background-color: #17181c;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .divider-y > * + * {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .input {
+    @apply tile w-full rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-muted outline-none focus:border-copper/50;
+  }
+  .btn-primary {
+    @apply w-full rounded-2xl bg-copper py-3.5 text-sm font-medium text-base transition-opacity active:opacity-80 disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply w-full rounded-2xl glass py-3.5 text-sm font-medium text-ink transition-opacity active:opacity-80 disabled:opacity-40;
+  }
+}
