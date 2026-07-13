@@ -1,0 +1,127 @@
+// Schema de referência para a migração futura ao PostgreSQL (Supabase).
+// A v1 do webapp roda com persistência local (src/services/storage.js) por
+// trás da mesma camada de serviços — este schema espelha exatamente as
+// entidades e campos usados lá, para que a troca seja 1:1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Turma {
+  id             String          @id @default(uuid())
+  nome           String // ex: "1º Ano A"
+  codigoPlanilha String? // ex: "1A", aba do Excel de origem
+  alunos         Aluno[]
+  representantes Representante[]
+  chamadas       Chamada[]
+  criadoEm       DateTime        @default(now())
+}
+
+model Aluno {
+  id        String     @id @default(uuid())
+  matricula String     @unique
+  nome      String
+  turmaId   String
+  turma     Turma      @relation(fields: [turmaId], references: [id])
+  ativo     Boolean    @default(true) // saiu da turma/escola = desativar, não deletar
+  presencas Presenca[]
+  criadoEm  DateTime   @default(now())
+}
+
+model Usuario {
+  id            String         @id @default(uuid())
+  matricula     String         @unique // código de convite/whitelist usado no cadastro
+  senhaHash     String
+  cargo         Cargo
+  nome          String
+  representante Representante?
+  criadoEm      DateTime       @default(now())
+}
+
+enum Cargo {
+  aluno
+  professor
+}
+
+model Representante {
+  id        String    @id @default(uuid())
+  usuarioId String    @unique
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+  turmaId   String // sem unicidade: até 2 ativos por turma (decisão 3.9)
+  turma     Turma     @relation(fields: [turmaId], references: [id])
+  ativo     Boolean   @default(true) // sai do cargo = desativar, não deletar
+  inicioEm  DateTime  @default(now())
+  fimEm     DateTime?
+
+  chamadasFinalizadas  Chamada[]
+  presencasAtualizadas Presenca[]
+  correcoes            CorrecaoPontual[]
+}
+
+model Chamada {
+  id           String        @id @default(uuid())
+  turmaId      String
+  turma        Turma         @relation(fields: [turmaId], references: [id])
+  data         DateTime      @db.Date
+  status       StatusChamada
+  finalizadaEm DateTime? // base da janela de 20 minutos (checada no backend)
+
+  finalizadaPorRepresentanteId String?
+  finalizadaPorRepresentante   Representante? @relation(fields: [finalizadaPorRepresentanteId], references: [id])
+
+  presencas Presenca[]
+
+  @@unique([turmaId, data]) // registro único por turma+dia, compartilhado pelos 2 representantes
+}
+
+enum StatusChamada {
+  completa
+  nao_feita
+  parcial
+}
+
+model Presenca {
+  id           String         @id @default(uuid())
+  chamadaId    String
+  chamada      Chamada        @relation(fields: [chamadaId], references: [id])
+  alunoId      String
+  aluno        Aluno          @relation(fields: [alunoId], references: [id])
+  status       StatusPresenca
+  atualizadoEm DateTime       @updatedAt
+
+  ultimaAtualizacaoPorRepresentanteId String?
+  ultimaAtualizacaoPorRepresentante   Representante? @relation(fields: [ultimaAtualizacaoPorRepresentanteId], references: [id])
+
+  correcoes CorrecaoPontual[]
+
+  @@unique([chamadaId, alunoId])
+}
+
+enum StatusPresenca {
+  presente
+  falta
+  falta_justificada
+}
+
+model CorrecaoPontual {
+  id         String   @id @default(uuid())
+  presencaId String
+  presenca   Presenca @relation(fields: [presencaId], references: [id])
+
+  representanteId String // obrigatório — auditoria de qual dos 2 aplicou
+  representante   Representante @relation(fields: [representanteId], references: [id])
+
+  tipo       TipoCorrecao
+  horario    DateTime     @default(now())
+  observacao String?
+}
+
+enum TipoCorrecao {
+  chegada_tardia
+  saida_antecipada
+}
